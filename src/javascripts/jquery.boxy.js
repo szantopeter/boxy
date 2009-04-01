@@ -5,6 +5,8 @@
  * Licensed under the MIT License (LICENSE)
  */
  
+//this version is altered by Szanto Peter
+
 /*
  * jQuery plugin
  *
@@ -14,17 +16,17 @@
  * Any other options - e.g. 'clone' - will be passed onto the boxy constructor (or
  * Boxy.load for AJAX operations)
  */
+
 jQuery.fn.boxy = function(options) {
     options = options || {};
     return this.each(function() {      
         var node = this.nodeName.toLowerCase(), self = this;
         if (node == 'a') {
             jQuery(this).click(function() {
+            	//SzP
                 var active = Boxy.linkedTo(this),
                     href = this.getAttribute('href'),
                     localOptions = jQuery.extend({actuator: this, title: this.title}, options);
-                    
-                if (href.match(/(&|\?)boxy\.modal/)) localOptions.modal = true;
                     
                 if (active) {
                     active.show();
@@ -34,9 +36,6 @@ jQuery.fn.boxy = function(options) {
                     content.remove();
                     localOptions.unloadOnHide = false;
                     new Boxy(newContent, localOptions);
-                } else if (href.match(/\.(jpe?g|png|gif|bmp)($|\?)/i)) {
-                    localOptions.unloadOnHide = true;
-                    Boxy.loadImage(this.href, localOptions);
                 } else { // fall back to AJAX; could do with a same-origin check
                     if (!localOptions.cache) localOptions.unloadOnHide = true;
                     Boxy.load(this.href, localOptions);
@@ -83,7 +82,7 @@ function Boxy(element, options) {
     this.toTop();
 
     if (this.options.fixed) {
-        if (Boxy.IE6) {
+        if (jQuery.browser.msie && jQuery.browser.version < 7) {
             this.options.fixed = false; // IE6 doesn't support fixed positioning
         } else {
             this.boxy.addClass('fixed');
@@ -94,8 +93,8 @@ function Boxy(element, options) {
         this.center();
     } else {
         this.moveTo(
-            Boxy._u(this.options.x) ? Boxy.DEFAULT_X : this.options.x,
-            Boxy._u(this.options.y) ? Boxy.DEFAULT_Y : this.options.y
+            Boxy._u(this.options.x) ? this.options.x : Boxy.DEFAULT_X,
+            Boxy._u(this.options.y) ? this.options.y : Boxy.DEFAULT_Y
         );
     }
     
@@ -130,16 +129,12 @@ jQuery.extend(Boxy, {
         afterDrop:              Boxy.EF,        // callback fired after dialog is dropped. executes in context of Boxy instance.
         afterShow:              Boxy.EF,        // callback fired after dialog becomes visible. executes in context of Boxy instance.
         afterHide:              Boxy.EF,        // callback fired after dialog is hidden. executed in context of Boxy instance.
-        beforeUnload:           Boxy.EF,        // callback fired after dialog is unloaded. executed in context of Boxy instance.
-		hideFade: 				false,
-		hideShrink: 			'vertical'
+        beforeUnload:           Boxy.EF         // callback fired after dialog is unloaded. executed in context of Boxy instance.
     },
     
-    IE6:                (jQuery.browser.msie && jQuery.browser.version < 7),
     DEFAULT_X:          50,
     DEFAULT_Y:          50,
-    MODAL_OPACITY:      0.7,
-    zIndex:             1337,
+    zIndex:             10337,
     dragConfigured:     false, // only set up one drag handler for all boxys
     resizeConfigured:   false,
     dragging:           null,
@@ -171,14 +166,6 @@ jQuery.extend(Boxy, {
         
         jQuery.ajax(ajax);
         
-    },
-    
-    loadImage: function(url, options) {
-        var img = new Image();
-        img.onload = function() {
-            new Boxy($('<div class="boxy-image-wrapper"/>').append(this), options);
-        }
-        img.src = url;
     },
     
     // allows you to get a handle to the containing boxy instance of any element
@@ -219,26 +206,33 @@ jQuery.extend(Boxy, {
         
         options = jQuery.extend({modal: true, closeable: false},
                                 options || {},
-                                {show: true, unloadOnHide: true});
+                                {show: true, unloadOnHide: true, actuator: document});
         
         var body = jQuery('<div></div>').append(jQuery('<div class="question"></div>').html(question));
-    
+        
+        // ick
+        var map = {}, answerStrings = [];
+        if (answers instanceof Array) {
+            for (var i = 0; i < answers.length; i++) {
+                map[answers[i]] = answers[i];
+                answerStrings.push(answers[i]);
+            }
+        } else {
+            for (var k in answers) {
+                map[answers[k]] = k;
+                answerStrings.push(answers[k]);
+            }
+        }
+        
         var buttons = jQuery('<form class="answers"></form>');
-        buttons.html(jQuery.map(Boxy._values(answers), function(v) {
-            return "<input type='button' value='" + v + "' />" 
+        buttons.html(jQuery.map(answerStrings, function(v) {
+            return "<input type='button' value='" + v + "' />";
         }).join(' '));
         
         jQuery('input[type=button]', buttons).click(function() {
             var clicked = this;
             Boxy.get(this).hide(function() {
-                if (callback) {
-                    jQuery.each(answers, function(i, val) {
-                        if (val == clicked.value) {
-                            callback(answers instanceof Array ? val : i);
-                            return false;
-                        }
-                    });
-                }
+                if (callback) callback(map[clicked.value]);
             });
         });
         
@@ -258,18 +252,15 @@ jQuery.extend(Boxy, {
             if (typeof arguments[i] != 'undefined') return false;
         return true;
     },
-
-    _values: function(t) {
-        if (t instanceof Array) return t;
-        var o = [];
-        for (var k in t) o.push(t[k]);
-        return o;
-    },
     
     _handleResize: function(evt) {
-        jQuery('.boxy-modal-blackout').css('display', 'none')
-                                      .css(Boxy._cssForOverlay())
-                                      .css('display', 'block');
+        var d = jQuery(document);
+        jQuery('.boxy-modal-blackout').css('display', 'none').css({
+            width: d.width(), height: d.height()
+        }).css('display', 'block');
+
+        //SzP
+        Boxy.linkedTo(document).center();
     },
     
     _handleDrag: function(evt) {
@@ -294,22 +285,6 @@ jQuery.extend(Boxy, {
                 (!Boxy._u(d) && !Boxy._u(d.clientWidth) && d.clientWidth != 0 ?
                     { width: d.clientWidth, height: d.clientHeight } :
                     { width: b.clientWidth, height: b.clientHeight }) );
-    },
-    
-    _setupModalResizing: function() {
-        if (!Boxy.resizeConfigured) {
-            var w = jQuery(window).resize(Boxy._handleResize);
-            if (Boxy.IE6) w.scroll(Boxy._handleResize);
-            Boxy.resizeConfigured = true;
-        }
-    },
-    
-    _cssForOverlay: function() {
-        if (Boxy.IE6) {
-            return Boxy._viewport();
-        } else {
-            return {width: '100%', height: jQuery(document).height()};
-        }
     }
 
 });
@@ -329,7 +304,7 @@ Boxy.prototype = {
     getSize: function() {
         return [this.boxy.width(), this.boxy.height()];
     },
-
+    
     // Returns the dimensions of the content region as [width,height]
     getContentSize: function() {
         var c = this.getContent();
@@ -460,11 +435,32 @@ Boxy.prototype = {
         if (this.visible) return;
         if (this.options.modal) {
             var self = this;
-            Boxy._setupModalResizing();
+            if (!Boxy.resizeConfigured) {
+                Boxy.resizeConfigured = true;
+                jQuery(window).resize(function() { Boxy._handleResize(); });
+            }
+
+//            this.modalBlackout = jQuery('<div class="boxy-modal-blackout"></div>')
+//                .css({zIndex: Boxy._nextZ(),
+//                      opacity: 0.7,
+//                      width: jQuery(document).width(),
+//                      height: jQuery(document).height()})
+//                .appendTo(document.body);
+
+//SzP: this was altered to make the blackout fade in
             this.modalBlackout = jQuery('<div class="boxy-modal-blackout"></div>')
-                .css(jQuery.extend(Boxy._cssForOverlay(), {
-                    zIndex: Boxy._nextZ(), opacity: Boxy.MODAL_OPACITY
-                })).appendTo(document.body);
+                .css({zIndex: Boxy._nextZ(),
+                      opacity: 0,
+                      width: jQuery(document).width(),
+                      height: jQuery(document).height()})
+                .appendTo(document.body).animate({opacity: 0.7});
+
+			//SzP: IE Fix
+			if (jQuery.browser.msie) {
+				jQuery('select').css('visibility', 'hidden');
+			}
+
+
             this.toTop();
             if (this.options.closeable) {
                 jQuery(document.body).bind('keypress.boxy', function(evt) {
@@ -476,66 +472,36 @@ Boxy.prototype = {
                 });
             }
         }
-		this.getInner().stop().css({width: '', height: ''});
         this.boxy.stop().css({opacity: 1}).show();
         this.visible = true;
-        this.boxy.find('.close:first').focus();
         this._fire('afterShow');
         return this;
     },
     
     // Hide this boxy instance
     hide: function(after) {
-        
-		if (!this.visible) return;
-        
-		var self = this;
-        
-		if (this.options.modal) {
+        if (!this.visible) return;
+        var self = this;
+        if (this.options.modal) {
             jQuery(document.body).unbind('keypress.boxy');
             this.modalBlackout.animate({opacity: 0}, function() {
                 jQuery(this).remove();
+    			//SzP: IE Fix
+    			if (jQuery.browser.msie) {
+    				jQuery('select').css('visibility', 'visible');
+    			}            
             });
+            
         }
-		
-		var target = { boxy: {}, inner: {} },
-			tween = 0,
-			hideComplete = function() {
-				self.boxy.css({display: 'none'});
-				self.visible = false;
-				self._fire('afterHide');
-				if (after) after(self);
-				if (self.options.unloadOnHide) self.unload();
-			};
-		
-		if (this.options.hideShrink) {
-			var inner = this.getInner(), hs = this.options.hideShrink, pos = this.getPosition();
-			tween |= 1;
-			if (hs === true || hs == 'vertical') {
-				target.inner.height = 0;
-				target.boxy.top = pos[1] + inner.height() / 2;
-			}
-			if (hs === true || hs == 'horizontal') {
-				target.inner.width = 0;
-				target.boxy.left = pos[0] + inner.width() / 2;
-			}
-		}
-		
-		if (this.options.hideFade) {
-			tween |= 2;
-			target.boxy.opacity = 0;
-		}
-		
-		if (tween) {
-			if (tween & 1) inner.stop().animate(target.inner, 300);
-			this.boxy.stop().animate(target.boxy, 300, hideComplete);
-		} else {
-			hideComplete();
-		}
-		
-		return this;
-	
-	},
+        this.boxy.stop().animate({opacity: 0}, 300, function() {
+            self.boxy.css({display: 'none'});
+            self.visible = false;
+            self._fire('afterHide');
+            if (after) after(self);
+            if (self.options.unloadOnHide) self.unload();
+        });
+        return this;
+    },
     
     toggle: function() {
         this[this.visible ? 'hide' : 'show']();
