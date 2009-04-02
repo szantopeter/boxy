@@ -134,7 +134,7 @@ jQuery.extend(Boxy, {
     
     DEFAULT_X:          50,
     DEFAULT_Y:          50,
-    zIndex:             1337,
+    zIndex:             10337,
     dragConfigured:     false, // only set up one drag handler for all boxys
     resizeConfigured:   false,
     dragging:           null,
@@ -260,7 +260,9 @@ jQuery.extend(Boxy, {
         }).css('display', 'block');
 
         //SzP
-        Boxy.linkedTo(document).center();
+        if (Boxy.linkedTo(document)) {
+        	Boxy.linkedTo(document).center();
+        }
     },
     
     _handleDrag: function(evt) {
